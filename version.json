@@ -1,0 +1,12 @@
+{
+  "version": "1.0.0",
+  "released": "2025-07-23",
+  "features": [
+    "✅ AI with auto role-detection",
+    "✅ Stylized font system",
+    "✅ Multi-language support",
+    "✅ Vision image analyzer",
+    "✅ Inline buttons & admin panel",
+    "✅ /version & /update system"
+  ]
+}

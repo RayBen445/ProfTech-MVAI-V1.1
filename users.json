@@ -1,0 +1,26 @@
+{
+  "6649936329": {
+    "name": "Professor",
+    "history": [
+      {
+        "text": "Good",
+        "time": "2025-07-23T09:42:48.415Z"
+      },
+      {
+        "text": "What's up",
+        "time": "2025-07-23T09:42:57.957Z"
+      },
+      {
+        "text": "2+2",
+        "time": "2025-07-23T09:43:12.179Z"
+      },
+      {
+        "text": "I have a fever",
+        "time": "2025-07-23T09:43:23.422Z"
+      }
+    ],
+    "lang": "en",
+    "font": "default",
+    "mode": "doctor"
+  }
+}
