@@ -5,7 +5,7 @@ const express = require('express');
 const bodyParser = require('body-parser');
 const cors = require('cors');
 
-const bot = new Telegraf(process.env.TELEGRAM_TOKEN);
+const bot2 = new Telegraf(process.env.TELEGRAM_TOKEN_TWO); // Add to .env file
 const app = express();
 const PORT = process.env.PORT || 3001;
 
@@ -180,8 +180,8 @@ bot.on('callback_query', async (ctx) => {
 });
 
 // 🌐 Webhook & Health Endpoints
-bot.telegram.setWebhook('https://proftech-mvai-v1-1.onrender.com');
-app.post('/telegram', bot.webhookCallback('/telegram'));
+bot2.telegram.setWebhook('https://proftech-mvai-v1-1.onrender.com/bot2');
+app.post('/bot2', bot2.webhookCallback('/bot2'));
 
 app.get('/telegram', (req, res) => {
   res.send('🔗 Telegram webhook endpoint is active (POST only)');
