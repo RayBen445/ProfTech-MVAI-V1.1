@@ -180,7 +180,7 @@ bot.on('callback_query', async (ctx) => {
 });
 
 // 🌐 Webhook & Health Endpoints
-bot.telegram.setWebhook('https://prof-tech-mvai.onrender.com/telegram');
+bot.telegram.setWebhook('https://proftech-mvai-v1-1.onrender.com');
 app.post('/telegram', bot.webhookCallback('/telegram'));
 
 app.get('/telegram', (req, res) => {
