@@ -1,159 +1,197 @@
 // Prof-Tech MVAI v1.1-upgrade (Stable)
-const { Telegraf, Markup } = require('telegraf');
-const express = require('express');
+const { Telegraf } = require('telegraf');
 const axios = require('axios');
-const fs = require('fs');
-require('dotenv').config();
+const express = require('express');
+const bodyParser = require('body-parser');
+const cors = require('cors');
 
-const bot = new Telegraf(process.env.BOT_TOKEN);
+const bot = new Telegraf(process.env.TELEGRAM_TOKEN);
 const app = express();
-const PORT = process.env.PORT || 3010;
+const PORT = process.env.PORT || 3000;
 
-// 🔧 Memory and Config
-let memory = {};
-let settings = {};
+app.use(cors());
+app.use(express.json());
+app.use(bodyParser.urlencoded({ extended: true }));
 
-// 🔁 Helper Functions
-function formatTime() {
-  const now = new Date();
-  return now.toLocaleString('en-GB', { timeZone: 'Africa/Lagos' });
-}
-function applyFont(text, font) {
-  switch (font) {
-    case 'bold': return text.replace(/[A-Za-z]/g, c => String.fromCharCode(c.charCodeAt(0) + 0x1D400 - 0x41));
-    case 'cursive': return text.replace(/[A-Za-z]/g, c => String.fromCharCode(c.charCodeAt(0) + 0x1D4D0 - 0x61));
-    default: return text;
-  }
-}
-function storeHistory(userId, input) {
-  if (!memory[userId]) memory[userId] = [];
-  memory[userId].unshift(input);
-  if (memory[userId].length > 10) memory[userId].pop();
+// MarkdownV2 Escaping Helper
+function escapeMarkdownV2(text) {
+  return text.replace(/([_*\[\]()~`>#+=|{}.!-])/g, '\\$1');
 }
 
-// 🔘 Start Command
-bot.start((ctx) => {
-  settings[ctx.chat.id] ||= { font: 'normal', lang: 'en', mode: 'friendly' };
-  const now = formatTime();
-  ctx.reply(`👋 Welcome to Prof-Tech MVAI\n🕒 ${now}`);
-});
+// 🧠 Roles & Languages Setup
+let userRoles = {};
+let userLanguages = {};
 
-// 🔘 Version
-bot.command('version', (ctx) => {
-  ctx.reply(`🧠 Prof-Tech MVAI Version: v1.1-upgrade`);
-});
+const roles = [
+  'Mathematician', 'Econometician', 'Doctor', 'Brain Master', 'Physicist',
+  'Chemist', 'Biologist', 'Engineer', 'Philosopher', 'Psychologist',
+  'Spiritual Advisor', 'AI Researcher', 'Teacher', 'Professor', 'Developer',
+  'Data Scientist', 'Statistician', 'Entrepreneur', 'Journalist', 'History Expert',
+  'Lawyer', 'Accountant', 'Investor', 'Startup Mentor', 'UX Designer',
+  'Therapist', 'Nutritionist', 'Fitness Coach', 'Poet', 'Author',
+  'Script Writer', 'Public Speaker', 'Game Developer', 'Ethical Hacker', 'Security Analyst',
+  'DevOps Engineer', 'Cloud Expert', 'Geographer', 'Astronomer', 'Political Analyst',
+  'Environmental Scientist', 'AI Lawyer', 'Robotics Engineer', 'Medical Researcher', 'Economist',
+  'Agronomist', 'Anthropologist', 'Cryptographer', 'Quantum Physicist', 'Visionary',
+  'Linguist', 'AI Trainer', 'Mobile Developer', 'Web Developer', 'Data Analyst',
+  'System Admin', 'Logician', 'Neuroscientist', 'Ecologist', 'Marine Biologist',
+  'Meteorologist', 'Cybersecurity Expert', 'Economics Tutor', 'Healthcare Consultant', 'Project Manager',
+  'Content Creator', 'SEO Expert', 'Social Media Strategist', 'Pharmacologist', 'Dentist',
+  'Veterinarian', 'Music Theorist', 'AI Ethicist', 'Language Tutor', 'Blockchain Developer',
+  'Geneticist', 'Psychiatrist', 'UX Researcher', 'Game Designer', 'Legal Advisor',
+  'Literary Critic', 'Cultural Analyst', 'Civil Engineer', 'Mechanical Engineer', 'Electrical Engineer',
+  'AI Psychologist', 'Film Critic', 'Forensic Scientist', 'Statistic Tutor', 'AI Architect',
+  'AI Philosopher', 'Hardware Engineer', 'Nutrition Coach', 'Space Scientist', 'Theologian'
+];
 
-// 🔘 Help
-bot.command('help', (ctx) => {
-  ctx.reply(`
-📜 Commands:
-/start — Welcome
-/menu — Inline Menu
-/fun — Random Joke or Quote
-/version — Bot Version
-/setfont <name>
-/setmode <type>
-/setlang <code>
-/history — Last 10 prompts
-/clearmemory — Clear history
-  `.trim());
-});
+const languages = [
+  { code: 'en', label: '🇬🇧 English' },
+  { code: 'fr', label: '🇫🇷 French' },
+  { code: 'es', label: '🇪🇸 Spanish' },
+  { code: 'de', label: '🇩🇪 German' },
+  { code: 'ar', label: '🇸🇦 Arabic' },
+  { code: 'hi', label: '🇮🇳 Hindi' },
+  { code: 'yo', label: '🇳🇬 Yoruba' },
+  { code: 'ig', label: '🇳🇬 Igbo' },
+  { code: 'zh', label: '🇨🇳 Chinese' },
+  { code: 'ru', label: '🇷🇺 Russian' },
+  { code: 'ja', label: '🇯🇵 Japanese' },
+  { code: 'pt', label: '🇵🇹 Portuguese' },
+  { code: 'it', label: '🇮🇹 Italian' },
+  { code: 'tr', label: '🇹🇷 Turkish' },
+  { code: 'sw', label: '🇰🇪 Swahili' }
+];
 
-// 🔘 Fun
-bot.command('fun', async (ctx) => {
-  const jokes = [
-    "😂 Why don’t programmers like nature? It has too many bugs!",
-    "💡 'Knowledge is power.'",
-    "🤣 Debugging: Removing the needles from the haystack."
-  ];
-  const pick = jokes[Math.floor(Math.random() * jokes.length)];
-  ctx.reply(pick);
-});
+const aiAPIs = [
+  'https://api.giftedtech.co.ke/api/ai/gpt4o',
+  'https://api.giftedtech.co.ke/api/ai/geminiaipro',
+  'https://api.giftedtech.co.ke/api/ai/meta-llama',
+  'https://api.giftedtech.co.ke/api/ai/copilot',
+  'https://api.giftedtech.co.ke/api/ai/ai'
+];
 
-// 🔘 Menu
-bot.command('menu', (ctx) => {
-  ctx.reply('⚙️ Settings:', Markup.inlineKeyboard([
-    [Markup.button.callback('🎨 Font', 'SET_FONT')],
-    [Markup.button.callback('🎯 Mode', 'SET_MODE')],
-    [Markup.button.callback('🌐 Language', 'SET_LANG')],
-  ]));
-});
-
-// 🔘 History
-bot.command('history', (ctx) => {
-  const hist = memory[ctx.chat.id] || [];
-  if (hist.length === 0) return ctx.reply('📭 No history yet.');
-  const formatted = hist.map((t, i) => `#${i + 1}: ${t}`).join('\n');
-  ctx.reply(`📚 Your Recent Prompts:\n${formatted}`);
-});
-
-// 🔘 Clear Memory
-bot.command('clearmemory', (ctx) => {
-  memory[ctx.chat.id] = [];
-  ctx.reply('🧠 Memory cleared.');
-});
-
-// Inline actions
-bot.action('SET_FONT', (ctx) => {
-  ctx.editMessageText('Choose a font:', Markup.inlineKeyboard([
-    [Markup.button.callback('Bold', 'FONT_bold')],
-    [Markup.button.callback('Cursive', 'FONT_cursive')],
-  ]));
-});
-
-bot.action('SET_MODE', (ctx) => {
-  ctx.editMessageText('Choose a mode:', Markup.inlineKeyboard([
-    [Markup.button.callback('Friendly', 'MODE_friendly')],
-    [Markup.button.callback('Strict', 'MODE_strict')],
-    [Markup.button.callback('Pro', 'MODE_pro')],
-  ]));
-});
-
-bot.action('SET_LANG', (ctx) => {
-  ctx.editMessageText('Choose a language:', Markup.inlineKeyboard([
-    [Markup.button.callback('🇬🇧 English', 'LANG_en')],
-    [Markup.button.callback('🇳🇬 Yoruba', 'LANG_yor')],
-    [Markup.button.callback('🇳🇬 Hausa', 'LANG_ha')],
-  ]));
-});
-
-// Handle Font/Mode/Lang set
-bot.action(/FONT_(.+)/, (ctx) => {
-  const font = ctx.match[1];
-  settings[ctx.chat.id].font = font;
-  ctx.reply(`✅ Font set to ${font}`);
-});
-bot.action(/MODE_(.+)/, (ctx) => {
-  const mode = ctx.match[1];
-  settings[ctx.chat.id].mode = mode;
-  ctx.reply(`✅ Mode set to ${mode}`);
-});
-bot.action(/LANG_(.+)/, (ctx) => {
-  const lang = ctx.match[1];
-  settings[ctx.chat.id].lang = lang;
-  ctx.reply(`✅ Language set to ${lang}`);
-});
-
-// 🧠 Main AI reply
+// 📩 Text Handler
 bot.on('text', async (ctx) => {
-  const q = ctx.message.text;
-  storeHistory(ctx.chat.id, q);
-  const userFont = settings[ctx.chat.id]?.font || 'normal';
+  const input = ctx.message.text;
+  const userId = ctx.from.id;
+  if (input.startsWith('/')) return;
 
-  try {
-    const res = await axios.post('https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=' + process.env.GEMINI_API_KEY, {
-      contents: [{ parts: [{ text: q }] }]
-    });
-    const reply = res.data?.candidates?.[0]?.content?.parts?.[0]?.text || '🤖 No response';
-    ctx.reply(applyFont(reply, userFont));
-  } catch (err) {
-    ctx.reply('⚠️ AI Error: Try again later.');
+  const role = userRoles[userId] || 'Brain Master';
+  const lang = userLanguages[userId] || 'en';
+  const time = new Date().toLocaleTimeString('en-NG', {
+    timeZone: 'Africa/Lagos',
+    hour: '2-digit',
+    minute: '2-digit'
+  });
+
+  await ctx.sendChatAction('typing');
+  let response = '🤖 Sorry, I couldn’t generate a reply.';
+
+  for (let url of aiAPIs) {
+    try {
+      const { data } = await axios.get(url, {
+        params: {
+          apikey: process.env.AI_API_KEY || 'gifted',
+          q: `${role}: ${input}`,
+          lang
+        },
+        timeout: 8000
+      });
+
+      if (data.result) {
+        const cleaned = escapeMarkdownV2(
+          data.result
+            .replace(/Prof-Tech MVAI|Gifted\s*AI|ChatGPT|GiftedTech|OpenAI/gi, 'Cool Shot AI')
+            .replace(/Cool Shot Designs\/Tech/gi, 'Cool Shot Systems')
+            .replace(/I['’`]?m an AI language model/gi, "I'm Cool Shot AI, your intelligent assistant")
+            .replace(/I was created by.*?[\\.\\n]/gi, "I was created by Cool Shot Systems.\n")
+            .replace(/[“”]/g, '"')
+        );
+
+        response = `👨‍💻 *Cool Shot AI \\(Most Valued AI\\)*\\n\\n${cleaned}\\n\\n⏰ ${time}`;
+        break;
+      }
+    } catch (err) {
+      console.error('❌ AI Request Failed:', err.message);
+    }
+  }
+
+  ctx.replyWithMarkdownV2(response);
+});
+
+// 🎬 Bot Commands
+bot.start((ctx) => {
+  ctx.replyWithMarkdownV2(
+    "👋 *Hello, I'm Cool Shot AI!*\\n\\n" +
+    "🤖 Developed by *Cool Shot Systems*, your intelligent assistant is now online\\!\\n\\n" +
+    "💡 Ask me anything:\\n🧮 Math | 💊 Health | 💻 Tech | 🎭 Creativity\\n\\n" +
+    "🎓 Use /role to switch brain mode\\n🌐 Use /lang to choose language\\n🚀 Let’s go\\!"
+  );
+});
+
+bot.command('about', (ctx) => {
+  ctx.replyWithMarkdownV2(
+    "ℹ️ *About Cool Shot AI*\\n\\n" +
+    "🤖 Developed by *Cool Shot Systems*\\n💡 Multi-role intelligent assistant powered by AI endpoints\\n🌐 15+ languages supported\\n🧠 100+ Knowledge Roles\\n\\n" +
+    "🎯 Use /role and /lang\\n🔄 Use /reset to reset settings"
+  );
+});
+
+bot.command('reset', (ctx) => {
+  const userId = ctx.from.id;
+  delete userRoles[userId];
+  delete userLanguages[userId];
+  ctx.reply('🔄 Settings have been reset to default.');
+});
+
+bot.command('role', (ctx) => {
+  ctx.reply('🧠 Choose a Brain Role:', {
+    reply_markup: {
+      inline_keyboard: roles.map((r, i) => [{ text: `${i + 1}. ${r}`, callback_data: `role_${r}` }])
+    }
+  });
+});
+
+bot.command('lang', (ctx) => {
+  ctx.reply('🌍 Choose Language:', {
+    reply_markup: {
+      inline_keyboard: languages.map(l => [{ text: l.label, callback_data: `lang_${l.code}` }])
+    }
+  });
+});
+
+// 🔁 Callback Query Handler
+bot.on('callback_query', async (ctx) => {
+  const data = ctx.callbackQuery.data;
+  const userId = ctx.from.id;
+
+  if (data.startsWith('role_')) {
+    const role = data.replace('role_', '');
+    userRoles[userId] = role;
+    await ctx.editMessageText(`🧠 Role switched to: *${escapeMarkdownV2(role)}*`, { parse_mode: 'MarkdownV2' });
+    ctx.answerCbQuery(`✅ Role set to ${role}`);
+  } else if (data.startsWith('lang_')) {
+    const lang = data.replace('lang_', '');
+    userLanguages[userId] = lang;
+    const label = languages.find(l => l.code === lang)?.label || lang;
+    await ctx.editMessageText(`🌍 Language switched to: *${escapeMarkdownV2(label)}*`, { parse_mode: 'MarkdownV2' });
+    ctx.answerCbQuery(`🌐 Language set to ${lang}`);
   }
 });
 
-// Server
-app.get('/', (req, res) => res.send('Prof-Tech MVAI is running.'));
-app.listen(PORT, () => console.log(`Server running on http://localhost:${PORT}`));
+// 🌐 Webhook & Health Endpoints
+bot.telegram.setWebhook('https://prof-tech-mvai.onrender.com/telegram');
+app.post('/telegram', bot.webhookCallback('/telegram'));
 
-// Start bot
-bot.launch();
+app.get('/telegram', (req, res) => {
+  res.send('🔗 Telegram webhook endpoint is active (POST only)');
+});
+
+app.get('/ping', (req, res) => {
+  res.status(200).send('🏓 Cool Shot AI server is alive!');
+});
+
+// 🚀 Start the Server
+app.listen(PORT, () => {
+  console.log(`✅ Cool Shot AI is live at http://localhost:${PORT}`);
+});
